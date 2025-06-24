@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
 from .email_utils import send_verification_email
+from .models import UserProfile
 
 User = get_user_model()
 
@@ -104,3 +105,51 @@ class AuthVerificationTestCase(TestCase):
         }, format='json')
         self.assertEqual(login_response.status_code, 200)
         self.assertIn('key', login_response.data)
+
+class BusinessProfileTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.register_url = '/api/register/'
+        self.verify_url = '/api/verify/'
+        self.login_url = '/api/login/'
+        self.business_data = {
+            'username': 'bizuser',
+            'email': 'bizuser@example.com',
+            'password1': 'Bizpass123!',
+            'password2': 'Bizpass123!',
+            'is_business_owner': True,
+            'business_name': 'BizName',
+            'industry': ['Construction', 'Electrical'],
+            'services': ['Repair', 'Installation'],
+        }
+
+    def test_business_profile_creation(self):
+        # Register business user
+        response = self.client.post(self.register_url, self.business_data, format='json')
+        self.assertEqual(response.status_code, 201)
+        # Check user and profile created
+        user = User.objects.get(username='bizuser')
+        profile = user.userprofile
+        self.assertTrue(profile.is_business_owner)
+        self.assertEqual(profile.business_name, 'BizName')
+        self.assertIn('Construction', profile.industry)
+        self.assertIn('Electrical', profile.industry)
+        self.assertIn('Repair', profile.services)
+        self.assertIn('Installation', profile.services)
+
+    def test_business_profile_requires_fields(self):
+        # Missing business_name
+        data = self.business_data.copy()
+        data['business_name'] = ''
+        response = self.client.post(self.register_url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        # Missing industry
+        data = self.business_data.copy()
+        data['industry'] = []
+        response = self.client.post(self.register_url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        # Missing services is allowed (optional)
+        data = self.business_data.copy()
+        data['services'] = []
+        response = self.client.post(self.register_url, data, format='json')
+        self.assertEqual(response.status_code, 201)

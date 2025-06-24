@@ -8,6 +8,7 @@ dj-rest-auth==7.0.1
 Django==5.2.3
 django-allauth==65.9.0
 django-cors-headers==4.7.0
+django-multiselectfield==1.0.1
 django-oauth-toolkit==3.0.1
 django-rest-framework-social-oauth2==1.2.0
 djangorestframework==3.16.0
