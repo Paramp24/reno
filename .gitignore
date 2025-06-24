@@ -1,1 +1,41 @@
-/env
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.env
+.venv/
+env/
+ENV/
+env.bak/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# macOS
+.DS_Store
+
+# System Files
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Logs
+*.log
+
+# Misc
+coverage/
