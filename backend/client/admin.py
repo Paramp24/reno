@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import UserProfile, ServiceRequest
+from django.utils.html import format_html
+from .models import UserProfile, ServiceRequest, ServiceRequestImage
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -26,11 +27,25 @@ class UserProfileAdmin(admin.ModelAdmin):
         return ", ".join(obj.services) if obj.services else ""
     display_services.short_description = 'Services Provided'
 
+class ServiceRequestImageInline(admin.TabularInline):
+    model = ServiceRequestImage
+    extra = 0
+    readonly_fields = ['image_preview']
+
+    def image_preview(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            return format_html('<img src="{}" width="100" />', obj.image.url)
+        return ""
+    image_preview.short_description = 'Image'
+
 @admin.register(ServiceRequest)
 class ServiceRequestAdmin(admin.ModelAdmin):
-    list_display = ('title', 'user', 'business_posted', 'location', 'price', 'created_at')
-    list_filter = ('business_posted', 'location')
-    search_fields = ('title', 'description', 'location', 'user__username')
+    inlines = [ServiceRequestImageInline]
+    list_display = ('title', 'user', 'location', 'business_posted')
+
+@admin.register(ServiceRequestImage)
+class ServiceRequestImageAdmin(admin.ModelAdmin):
+    list_display = ('service_request', 'image', 'uploaded_at')
 
 # Inline for User admin
 class UserProfileInline(admin.StackedInline):

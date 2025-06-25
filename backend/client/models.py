@@ -22,6 +22,9 @@ SERVICES_CHOICES = [
     ('Other', 'Other'),
 ]
 
+def service_request_image_path(instance, filename):
+    return f"service_request_images/{instance.service_request.user.email}/{filename}"
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     is_verified = models.BooleanField(default=False)
@@ -46,3 +49,11 @@ class ServiceRequest(models.Model):
 
     def __str__(self):
         return self.title
+
+class ServiceRequestImage(models.Model):
+    service_request = models.ForeignKey('ServiceRequest', related_name='images', on_delete=models.CASCADE)
+    image = models.ImageField(upload_to=service_request_image_path)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Image for {self.service_request.title}"

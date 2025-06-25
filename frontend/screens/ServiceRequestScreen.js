@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Switch, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Switch, ScrollView, Alert, Image } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
 const CustomButton = ({ title, onPress, selected }) => (
   <TouchableOpacity
@@ -34,6 +35,7 @@ export default function ServiceRequestScreen({ navigation }) {
   const [servicesNeeded, setServicesNeeded] = useState([]);
   const [servicesSearch, setServicesSearch] = useState('');
   const [businessPosted, setBusinessPosted] = useState(false);
+  const [images, setImages] = useState([]); // changed from image to images array
 
   const toggleService = (choice) => {
     setServicesNeeded((prev) =>
@@ -47,18 +49,60 @@ export default function ServiceRequestScreen({ navigation }) {
     setServicesNeeded((prev) => prev.filter((item) => item !== choice));
   };
 
+  // Image picker handler (multiple)
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+      base64: false,
+      allowsMultipleSelection: true, // allow multiple
+      selectionLimit: 5, // optional: limit to 5 images
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setImages((prev) => [...prev, ...result.assets]);
+    }
+  };
+
+  const removeImage = (idx) => {
+    setImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleSubmit = async () => {
     const token = await AsyncStorage.getItem('authToken');
     try {
-      await axios.post('http://127.0.0.1:8000/api/service-request/', {
-        title,
-        description,
-        price: price ? parseFloat(price) : null,
-        location,
-        services_needed: servicesNeeded,
-        business_posted: businessPosted,
-      }, {
-        headers: { Authorization: `Token ${token}` }
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      if (price) formData.append('price', parseFloat(price));
+      formData.append('location', location);
+      formData.append('services_needed', JSON.stringify(servicesNeeded));
+      formData.append('business_posted', businessPosted);
+      // Append all images
+      images.forEach((img, idx) => {
+        let uri = img.uri;
+        let filename = uri.split('/').pop() || `service_image_${idx}.jpg`;
+        let match = /\.(\w+)$/.exec(filename);
+        let ext = match ? match[1].toLowerCase() : 'jpg';
+        let mimeType = 'image/jpeg';
+        if (ext === 'png') mimeType = 'image/png';
+        else if (ext === 'heic') mimeType = 'image/heic';
+        formData.append(`image_${idx}`, {
+          uri,
+          name: filename,
+          type: mimeType,
+        });
+      });
+
+      await axios.post('http://127.0.0.1:8000/api/service-request/', formData, {
+        headers: {
+          Authorization: `Token ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        transformRequest: (data, headers) => {
+          return data;
+        },
       });
       Alert.alert('Success', 'Service request created!');
       navigation.goBack();
@@ -134,6 +178,25 @@ export default function ServiceRequestScreen({ navigation }) {
             ))}
         </View>
       )}
+      <TouchableOpacity style={styles.imageButton} onPress={pickImage}>
+        <Text style={styles.imageButtonText}>{images.length > 0 ? 'Add More Images' : 'Upload Images (jpg, png, heic)'}</Text>
+      </TouchableOpacity>
+      {images.length > 0 && (
+        <ScrollView horizontal style={{ marginVertical: 10 }}>
+          {images.map((img, idx) => (
+            <View key={img.uri} style={{ marginRight: 10, alignItems: 'center' }}>
+              <Image
+                source={{ uri: img.uri }}
+                style={{ width: 100, height: 100, borderRadius: 10 }}
+                resizeMode="cover"
+              />
+              <TouchableOpacity onPress={() => removeImage(idx)}>
+                <Text style={{ color: 'red', fontWeight: 'bold', marginTop: 2 }}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
+      )}
       <TouchableOpacity style={styles.button} onPress={handleSubmit}>
         <Text style={styles.buttonText}>Submit Request</Text>
       </TouchableOpacity>
@@ -193,5 +256,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 2,
     paddingHorizontal: 2,
+  },
+  imageButton: {
+    backgroundColor: '#f0f0f0',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 10,
+    width: 200,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  imageButtonText: {
+    color: '#333',
+    fontWeight: 'bold',
   },
 });
