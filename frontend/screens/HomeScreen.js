@@ -1,20 +1,10 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        navigation.replace('Login');
-      }
-    };
-    checkAuth();
-  }, []);
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('authToken');
