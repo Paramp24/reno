@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authtoken.models import Token
-from .models import INDUSTRY_CHOICES, SERVICES_CHOICES
+from .models import INDUSTRY_CHOICES, SERVICES_CHOICES, ServiceRequest
 from .email_utils import send_verification_email
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -102,3 +102,29 @@ class ChoicesView(APIView):
         industry = [choice[0] for choice in INDUSTRY_CHOICES]
         services = [choice[0] for choice in SERVICES_CHOICES]
         return Response({'industry': industry, 'services': services})
+
+class ServiceRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        data = request.data
+        title = data.get('title')
+        description = data.get('description')
+        price = data.get('price')
+        location = data.get('location')
+        services_needed = data.get('services_needed', [])
+        business_posted = data.get('business_posted', False)
+
+        if not title or not description or not location:
+            return Response({'error': 'Title, description, and location are required.'}, status=400)
+
+        sr = ServiceRequest.objects.create(
+            user=request.user,
+            title=title,
+            description=description,
+            price=price if price else None,
+            location=location,
+            services_needed=services_needed,
+            business_posted=business_posted
+        )
+        return Response({'detail': 'Service request created.'}, status=201)

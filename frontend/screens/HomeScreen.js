@@ -27,6 +27,12 @@ export default function HomeScreen() {
       <TouchableOpacity style={styles.button} onPress={handleLogout}>
         <Text style={styles.buttonText}>Logout</Text>
       </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: '#007bff', marginTop: 10 }]}
+        onPress={() => navigation.navigate('ServiceRequest')}
+      >
+        <Text style={styles.buttonText}>Create Service Request</Text>
+      </TouchableOpacity>
     </View>
   );
 }

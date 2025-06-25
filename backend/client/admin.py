@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import UserProfile
+from .models import UserProfile, ServiceRequest
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -25,6 +25,12 @@ class UserProfileAdmin(admin.ModelAdmin):
     def display_services(self, obj):
         return ", ".join(obj.services) if obj.services else ""
     display_services.short_description = 'Services Provided'
+
+@admin.register(ServiceRequest)
+class ServiceRequestAdmin(admin.ModelAdmin):
+    list_display = ('title', 'user', 'business_posted', 'location', 'price', 'created_at')
+    list_filter = ('business_posted', 'location')
+    search_fields = ('title', 'description', 'location', 'user__username')
 
 # Inline for User admin
 class UserProfileInline(admin.StackedInline):
