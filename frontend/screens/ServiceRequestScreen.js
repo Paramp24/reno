@@ -83,7 +83,7 @@ export default function ServiceRequestScreen({ navigation }) {
       formData.append('location', location);
       formData.append('services_needed', JSON.stringify(servicesNeeded));
       formData.append('business_posted', businessPosted);
-      // Append all images with the same key
+      // Append all images with unique keys: image0, image1, ...
       images.forEach((img, idx) => {
         let uri = img.uri;
         if (uri.startsWith('file://')) {
@@ -93,7 +93,7 @@ export default function ServiceRequestScreen({ navigation }) {
           let mimeType = 'image/jpeg';
           if (ext === 'png') mimeType = 'image/png';
           else if (ext === 'heic') mimeType = 'image/heic';
-          formData.append('image', {
+          formData.append(`image${idx}`, {
             uri,
             name: filename,
             type: mimeType,
@@ -114,7 +114,7 @@ export default function ServiceRequestScreen({ navigation }) {
               }
               const byteArray = new Uint8Array(byteNumbers);
               const blob = new Blob([byteArray], { type: mimeType });
-              formData.append('image', blob, filename);
+              formData.append(`image${idx}`, blob, filename);
             }
           }
         } else {
