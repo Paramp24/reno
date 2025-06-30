@@ -2,30 +2,34 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import UserProfile, ServiceRequest, ServiceRequestImage
+from .models import UserProfile, ServiceRequest, ServiceRequestImage, BusinessProfile
 
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = (
-        'user',
-        'is_verified',
-        'is_business_owner',
-        'business_name',
-        'display_industry',
-        'display_services',
-    )
-    fieldsets = (
-        (None, {'fields': ('user', 'is_verified')}),
-        ('Business Info', {'fields': ('is_business_owner', 'business_name', 'industry', 'services')}),
-    )
+@admin.register(BusinessProfile)
+class BusinessProfileAdmin(admin.ModelAdmin):
+    list_display = ('business_name', 'get_user', 'get_email', 'industry_display', 'services_display')
+    search_fields = ('business_name', 'user_profile__user__username', 'user_profile__user__email')
 
-    def display_industry(self, obj):
+    def get_user(self, obj):
+        return obj.user_profile.user.username
+    get_user.short_description = 'User'
+
+    def get_email(self, obj):
+        return obj.user_profile.user.email
+    get_email.short_description = 'Email'
+
+    def industry_display(self, obj):
         return ", ".join(obj.industry) if obj.industry else ""
-    display_industry.short_description = 'Industry'
+    industry_display.short_description = 'Industry'
 
-    def display_services(self, obj):
+    def services_display(self, obj):
         return ", ".join(obj.services) if obj.services else ""
-    display_services.short_description = 'Services Provided'
+    services_display.short_description = 'Services'
+
+class BusinessProfileInline(admin.StackedInline):
+    model = BusinessProfile
+    can_delete = False
+    verbose_name_plural = 'Business Profile'
+    fields = ('business_name', 'industry', 'services')
 
 class ServiceRequestImageInline(admin.TabularInline):
     model = ServiceRequestImage

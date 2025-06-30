@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import RegisterView, VerifyCodeView, CustomLoginView, HelloView, ChoicesView, ServiceRequestView
+from .views import RegisterView, VerifyCodeView, CustomLoginView, HelloView, ChoicesView, ServiceRequestView, BusinessProfileListView, ServiceRequestListView
 
 urlpatterns = [
     path('hello/', HelloView.as_view()),
@@ -9,4 +9,6 @@ urlpatterns = [
     path('api/choices/', ChoicesView.as_view(), name='choices'),
     path('choices/', ChoicesView.as_view(), name='choices'),
     path('service-request/', ServiceRequestView.as_view(), name='service-request'),
+    path('business-profiles/', BusinessProfileListView.as_view(), name='business-profiles'),
+    path('service-requests/', ServiceRequestListView.as_view(), name='service-requests'),
 ]

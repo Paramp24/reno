@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authtoken.models import Token
-from .models import INDUSTRY_CHOICES, SERVICES_CHOICES, ServiceRequest, ServiceRequestImage
+from .models import INDUSTRY_CHOICES, SERVICES_CHOICES, ServiceRequest, ServiceRequestImage, BusinessProfile, UserProfile
 from .email_utils import send_verification_email
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -13,6 +13,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from django.core.files.base import ContentFile
 import base64
+from rest_framework import serializers
 
 def generate_code(length=8):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
@@ -156,3 +157,33 @@ class ServiceRequestView(APIView):
             return Response({'detail': 'Service request created.'}, status=201)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+
+class BusinessProfileListSerializer(serializers.ModelSerializer):
+    user = serializers.CharField(source='user_profile.user.username')
+    email = serializers.CharField(source='user_profile.user.email')
+    class Meta:
+        model = BusinessProfile
+        fields = ['id', 'business_name', 'industry', 'services', 'user', 'email']
+
+class ServiceRequestListSerializer(serializers.ModelSerializer):
+    user = serializers.CharField(source='user.username')
+    images = serializers.SerializerMethodField()
+    class Meta:
+        model = ServiceRequest
+        fields = ['id', 'title', 'description', 'price', 'location', 'services_needed', 'business_posted', 'created_at', 'user', 'images']
+    def get_images(self, obj):
+        return [img.image.url for img in obj.images.all()]
+
+class BusinessProfileListView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request):
+        queryset = BusinessProfile.objects.all()
+        serializer = BusinessProfileListSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+class ServiceRequestListView(APIView):
+    permission_classes = [permissions.AllowAny]
+    def get(self, request):
+        queryset = ServiceRequest.objects.all().order_by('-created_at')
+        serializer = ServiceRequestListSerializer(queryset, many=True)
+        return Response(serializer.data)

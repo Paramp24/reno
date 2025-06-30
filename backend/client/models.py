@@ -39,6 +39,15 @@ class UserProfile(models.Model):
     def __str__(self):
         return self.user.username
 
+class BusinessProfile(models.Model):
+    user_profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='business_profile')
+    business_name = models.CharField(max_length=255)
+    industry = MultiSelectField(choices=INDUSTRY_CHOICES, blank=True, null=True)
+    services = MultiSelectField(choices=SERVICES_CHOICES, blank=True, null=True)
+
+    def __str__(self):
+        return f"Business: {self.business_name} ({self.user_profile.user.username})"
+
 class ServiceRequest(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='related_requests')
     title = models.CharField(max_length=255)
