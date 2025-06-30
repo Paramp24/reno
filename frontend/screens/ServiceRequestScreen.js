@@ -52,12 +52,12 @@ export default function ServiceRequestScreen({ navigation }) {
   // Image picker handler (multiple)
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
+      mediaTypes: ImagePicker.MediaType, // fallback to supported API
+      allowsMultipleSelection: true,
+      selectionLimit: 5, // optional: limit to 5 images
       quality: 0.7,
       base64: false,
-      allowsMultipleSelection: true, // allow multiple
-      selectionLimit: 5, // optional: limit to 5 images
+      // allowsEditing: true, // REMOVE this line to fix the warning
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -71,6 +71,10 @@ export default function ServiceRequestScreen({ navigation }) {
 
   const handleSubmit = async () => {
     const token = await AsyncStorage.getItem('authToken');
+    if (!token) {
+      Alert.alert('Error', 'No token found. Please log in again.');
+      return;
+    }
     try {
       const formData = new FormData();
       formData.append('title', title);
@@ -79,33 +83,54 @@ export default function ServiceRequestScreen({ navigation }) {
       formData.append('location', location);
       formData.append('services_needed', JSON.stringify(servicesNeeded));
       formData.append('business_posted', businessPosted);
-      // Append all images
+      // Append all images with the same key
       images.forEach((img, idx) => {
         let uri = img.uri;
-        let filename = uri.split('/').pop() || `service_image_${idx}.jpg`;
-        let match = /\.(\w+)$/.exec(filename);
-        let ext = match ? match[1].toLowerCase() : 'jpg';
-        let mimeType = 'image/jpeg';
-        if (ext === 'png') mimeType = 'image/png';
-        else if (ext === 'heic') mimeType = 'image/heic';
-        formData.append(`image_${idx}`, {
-          uri,
-          name: filename,
-          type: mimeType,
-        });
+        if (uri.startsWith('file://')) {
+          let filename = uri.split('/').pop() || `service_image_${idx}.jpg`;
+          let match = /\.(\w+)$/.exec(filename);
+          let ext = match ? match[1].toLowerCase() : 'jpg';
+          let mimeType = 'image/jpeg';
+          if (ext === 'png') mimeType = 'image/png';
+          else if (ext === 'heic') mimeType = 'image/heic';
+          formData.append('image', {
+            uri,
+            name: filename,
+            type: mimeType,
+          });
+        } else if (uri.startsWith('data:')) {
+          // Handle base64 data URI (web)
+          let matches = uri.match(/^data:(.+);base64,(.+)$/);
+          if (matches) {
+            let mimeType = matches[1];
+            let base64Data = matches[2];
+            let filename = `service_image_${idx}.${mimeType.split('/')[1] || 'jpg'}`;
+            // Convert base64 to blob for web
+            if (typeof window !== 'undefined' && window.Blob) {
+              const byteCharacters = atob(base64Data);
+              const byteNumbers = new Array(byteCharacters.length);
+              for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+              }
+              const byteArray = new Uint8Array(byteNumbers);
+              const blob = new Blob([byteArray], { type: mimeType });
+              formData.append('image', blob, filename);
+            }
+          }
+        } else {
+          console.warn('Skipping invalid image uri:', uri);
+        }
       });
 
       await axios.post('http://127.0.0.1:8000/api/service-request/', formData, {
         headers: {
           Authorization: `Token ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-        transformRequest: (data, headers) => {
-          return data;
+          // Do NOT set Content-Type manually!
         },
       });
       Alert.alert('Success', 'Service request created!');
-      navigation.goBack();
+      // Navigate to Home and trigger refresh
+      navigation.navigate('Home', { refresh: true });
     } catch (err) {
       Alert.alert('Error', 'Failed to create service request.');
     }
@@ -184,7 +209,7 @@ export default function ServiceRequestScreen({ navigation }) {
       {images.length > 0 && (
         <ScrollView horizontal style={{ marginVertical: 10 }}>
           {images.map((img, idx) => (
-            <View key={img.uri} style={{ marginRight: 10, alignItems: 'center' }}>
+            <View key={idx} style={{ marginRight: 10, alignItems: 'center' }}>
               <Image
                 source={{ uri: img.uri }}
                 style={{ width: 100, height: 100, borderRadius: 10 }}
@@ -272,3 +297,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+

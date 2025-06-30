@@ -117,20 +117,22 @@ class ServiceRequestView(APIView):
         services_needed_json = data.get('services_needed', '[]')
         business_posted = data.get('business_posted', False)
         images = []
+        # Collect all files with key starting with 'image'
         for key in request.FILES:
             if key.startswith('image'):
-                images.append(request.FILES[key])
-        
+                img = request.FILES[key]
+                if img:
+                    images.append(img)
         # Handle services_needed as either JSON string or list
         if isinstance(services_needed_json, str):
             import json
             try:
                 services_needed = json.loads(services_needed_json)
-            except:
+            except Exception:
                 services_needed = []
         else:
             services_needed = services_needed_json
-            
+
         # Convert business_posted string to boolean if needed
         if isinstance(business_posted, str):
             business_posted = business_posted.lower() in ['true', 'yes', '1']
@@ -148,16 +150,9 @@ class ServiceRequestView(APIView):
                 services_needed=services_needed,
                 business_posted=business_posted,
             )
+            # Save images
             for img in images:
                 ServiceRequestImage.objects.create(service_request=sr, image=img)
-
-            # Add two default 1×1 white pixel images
-            white_pixel_b64 = b'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M+AAQAEAEbCDaDGAAAAAElFTkSuQmCC'
-            content_file_1 = ContentFile(base64.b64decode(white_pixel_b64), 'white_pixel_1.png')
-            content_file_2 = ContentFile(base64.b64decode(white_pixel_b64), 'white_pixel_2.png')
-            ServiceRequestImage.objects.create(service_request=sr, image=content_file_1)
-            ServiceRequestImage.objects.create(service_request=sr, image=content_file_2)
             return Response({'detail': 'Service request created.'}, status=201)
         except Exception as e:
-            print("ServiceRequest creation error:", e)  # Debug line
             return Response({'error': str(e)}, status=500)

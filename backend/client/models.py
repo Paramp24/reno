@@ -23,6 +23,8 @@ SERVICES_CHOICES = [
 ]
 
 def service_request_image_path(instance, filename):
+    # Debug print
+    print("Uploading image for:", instance.service_request.user.email, filename)
     return f"service_request_images/{instance.service_request.user.email}/{filename}"
 
 class UserProfile(models.Model):
@@ -38,7 +40,7 @@ class UserProfile(models.Model):
         return self.user.username
 
 class ServiceRequest(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='related_requests')
     title = models.CharField(max_length=255)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
