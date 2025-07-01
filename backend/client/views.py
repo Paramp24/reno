@@ -94,7 +94,7 @@ class CustomLoginView(APIView):
 class HelloView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
-        return Response({"message": "Hello, authenticated user!"})
+        return Response({"username": request.user.username})
 
 class ChoicesView(APIView):
     permission_classes = [permissions.AllowAny]
