@@ -5,14 +5,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authtoken.models import Token
+from django.shortcuts import get_object_or_404
 from .models import INDUSTRY_CHOICES, SERVICES_CHOICES, ServiceRequest, ServiceRequestImage, BusinessProfile, UserProfile, ChatRoom, Message
 from .email_utils import send_verification_email
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
-from django.core.files.base import ContentFile
-import base64
 from rest_framework import serializers
 
 def generate_code(length=8):
@@ -188,90 +186,95 @@ class ServiceRequestListView(APIView):
         serializer = ServiceRequestListSerializer(queryset, many=True)
         return Response(serializer.data)
 
-class ChatRoomListView(APIView):
+class ChatRoomSerializer(serializers.ModelSerializer):
+    other_participant = serializers.SerializerMethodField()
+    service_request = ServiceRequestListSerializer()
+    latest_message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ChatRoom
+        fields = ['id', 'service_request', 'created_at', 'other_participant', 'latest_message']
+
+    def get_other_participant(self, obj):
+        user = self.context['request'].user
+        other_user = obj.participants.exclude(id=user.id).first()
+        return {'username': other_user.username, 'id': other_user.id} if other_user else None
+
+    def get_latest_message(self, obj):
+        latest = obj.messages.order_by('-timestamp').first()
+        if latest:
+            return {
+                'content': latest.content,
+                'sender': latest.sender.username,
+                'timestamp': latest.timestamp
+            }
+        return None
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    sender = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Message
+        fields = ['id', 'content', 'sender', 'timestamp']
+
+    def get_sender(self, obj):
+        return {'username': obj.sender.username, 'id': obj.sender.id}
+
+class ChatRoomView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        rooms = ChatRoom.objects.filter(participants=request.user).select_related('service_request').prefetch_related('participants', 'messages')
-        data = []
-        
-        for room in rooms:
-            # Get the other participant (not the current user)
-            other_participant = next(
-                (user for user in room.participants.all() if user != request.user),
-                None
-            )
-            
-            # Get the latest message if any
-            latest_message = room.messages.order_by('-timestamp').first()
-            
-            room_data = {
-                'id': room.id,
-                'service_request': {
-                    'id': room.service_request.id,
-                    'title': room.service_request.title,
-                },
-                'other_participant': {
-                    'username': other_participant.username if other_participant else None,
-                },
-                'latest_message': {
-                    'content': latest_message.content if latest_message else None,
-                    'timestamp': latest_message.timestamp if latest_message else None,
-                    'sender': latest_message.sender.username if latest_message else None,
-                } if latest_message else None,
-                'created_at': room.created_at,
-            }
-            data.append(room_data)
-            
-        # Sort by latest message timestamp or room creation date
-        data.sort(key=lambda x: (
-            x['latest_message']['timestamp'] if x['latest_message'] else x['created_at']
-        ), reverse=True)
-        
-        return Response(data)
-
-class MessageListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, room_id):
-        try:
-            room = ChatRoom.objects.get(id=room_id)
-            if request.user not in room.participants.all():
-                return Response({'error': 'Not allowed'}, status=403)
-            messages = room.messages.order_by('timestamp')
-            data = [
-                {
-                    'id': msg.id,
-                    'sender': msg.sender.username,
-                    'content': msg.content,
-                    'timestamp': msg.timestamp,
-                }
-                for msg in messages
-            ]
-            return Response(data)
-        except ChatRoom.DoesNotExist:
-            return Response({'error': 'Room not found'}, status=404)
+        rooms = ChatRoom.objects.filter(participants=request.user)
+        serializer = ChatRoomSerializer(rooms, many=True, context={'request': request})
+        return Response(serializer.data)
 
 class CreateChatRoomView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         service_request_id = request.data.get('service_request_id')
-        try:
-            sr = ServiceRequest.objects.get(id=service_request_id)
-            # Only allow poster and business user
-            if sr.user == request.user:
-                other_user = request.data.get('other_user')
-                if not other_user:
-                    return Response({'error': 'Other user required'}, status=400)
-                other = User.objects.get(username=other_user)
-            else:
-                other = sr.user
-            # Check if room exists
-            room, created = ChatRoom.objects.get_or_create(service_request=sr)
-            room.participants.add(request.user, other)
-            return Response({'room_id': room.id})
-        except ServiceRequest.DoesNotExist:
-            return Response({'error': 'Service request not found'}, status=404)
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=404)
+        service_request = get_object_or_404(ServiceRequest, id=service_request_id)
+        
+        # Check if room already exists
+        existing_room = ChatRoom.objects.filter(
+            service_request=service_request,
+            participants=request.user
+        ).first()
+        
+        if existing_room:
+            return Response({'room_id': existing_room.id})
+            
+        room = ChatRoom.objects.create(service_request=service_request)
+        room.participants.add(request.user, service_request.user)
+        return Response({'room_id': room.id})
+
+class ChatMessageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, room_id):
+        room = get_object_or_404(ChatRoom, id=room_id)
+        if request.user not in room.participants.all():
+            return Response({'error': 'Not authorized'}, status=403)
+            
+        messages = Message.objects.filter(room=room).order_by('-timestamp')
+        serializer = ChatMessageSerializer(messages, many=True)
+        return Response(serializer.data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -52,7 +52,7 @@ export default function ServiceRequestScreen({ navigation }) {
   // Image picker handler (multiple)
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaType, // fallback to supported API
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       selectionLimit: 5, // optional: limit to 5 images
       quality: 0.7,

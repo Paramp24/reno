@@ -1,5 +1,10 @@
 from django.urls import path
-from .views import RegisterView, VerifyCodeView, CustomLoginView, HelloView, ChoicesView, ServiceRequestView, BusinessProfileListView, ServiceRequestListView, ChatRoomListView, MessageListView, CreateChatRoomView
+from .views import (
+    RegisterView, VerifyCodeView, CustomLoginView, 
+    HelloView, ChoicesView, ServiceRequestView, 
+    BusinessProfileListView, ServiceRequestListView,
+    ChatRoomView, ChatMessageView, CreateChatRoomView
+)
 
 urlpatterns = [
     path('hello/', HelloView.as_view()),
@@ -11,7 +16,9 @@ urlpatterns = [
     path('service-request/', ServiceRequestView.as_view(), name='service-request'),
     path('business-profiles/', BusinessProfileListView.as_view(), name='business-profiles'),
     path('service-requests/', ServiceRequestListView.as_view(), name='service-requests'),
-    path('chat-rooms/', ChatRoomListView.as_view(), name='chat-rooms'),
+    
+    # Chat endpoints
+    path('chat-rooms/', ChatRoomView.as_view(), name='chat-rooms'),
     path('chat-rooms/create/', CreateChatRoomView.as_view(), name='create-chat-room'),
-    path('chat-rooms/<int:room_id>/messages/', MessageListView.as_view(), name='chat-room-messages'),
+    path('chat-rooms/<int:room_id>/messages/', ChatMessageView.as_view(), name='chat-messages'),
 ]
