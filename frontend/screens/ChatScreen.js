@@ -5,26 +5,55 @@ import axios from 'axios';
 import { format } from 'date-fns';
 
 export default function ChatScreen({ route, navigation }) {
-  // Add default values and validation for route params
-  const params = route?.params || {};
-  const roomId = params.roomId;
-  const roomTitle = params.roomTitle || 'Chat';
-  
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const ws = useRef(null);
   const [username, setUsername] = useState('');
+  const [roomId, setRoomId] = useState(route?.params?.roomId || null);
+  const [roomTitle, setRoomTitle] = useState(route?.params?.roomTitle || 'Chat');
+  const [loadingParams, setLoadingParams] = useState(!route?.params?.roomId);
+
+  // Save last opened chat info to AsyncStorage
+  useEffect(() => {
+    if (route?.params?.roomId) {
+      AsyncStorage.setItem('lastChatRoom', JSON.stringify({
+        roomId: route.params.roomId,
+        roomTitle: route.params.roomTitle || 'Chat'
+      }));
+    }
+  }, [route?.params?.roomId, route?.params?.roomTitle]);
+
+  // On mount, if params missing, try to recover from AsyncStorage
+  useEffect(() => {
+    if (!roomId) {
+      (async () => {
+        const last = await AsyncStorage.getItem('lastChatRoom');
+        if (last) {
+          try {
+            const parsed = JSON.parse(last);
+            if (parsed.roomId) {
+              setRoomId(parsed.roomId);
+              setRoomTitle(parsed.roomTitle || 'Chat');
+            }
+          } catch {}
+        }
+        setLoadingParams(false);
+      })();
+    } else {
+      setLoadingParams(false);
+    }
+  }, []);
 
   // Check if we have the required parameters, if not redirect to Home
   useEffect(() => {
-    if (!roomId) {
+    if (!loadingParams && !roomId) {
       Alert.alert(
         "Missing Information",
         "Chat room information is missing. Returning to home screen.",
         [{ text: "OK", onPress: () => navigation.replace('Home') }]
       );
     }
-  }, [roomId, navigation]);
+  }, [roomId, navigation, loadingParams]);
 
   // Only proceed with API calls if we have a roomId
   useEffect(() => {
@@ -177,7 +206,11 @@ export default function ChatScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {!roomId ? (
+      {loadingParams ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Loading chat...</Text>
+        </View>
+      ) : !roomId ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
             Unable to load chat. Room information is missing.
