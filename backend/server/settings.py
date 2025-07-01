@@ -165,7 +165,13 @@ AUTHENTICATION_BACKENDS = [
 CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
-    "http://127.0.0.1:8081",
+    "http://127.0.0.1:8080",
+    "http://192.168.2.94:8081",  # Add this line
+    
+    "http://localhost:19006",
+    "http://127.0.0.1:19006",
+    "http://192.168.2.94:19006",  # Add this line
+
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
@@ -198,10 +204,6 @@ REST_FRAMEWORK = {
     ),
 }
 
-OAUTH2_PROVIDER = {
-    'ACCESS_TOKEN_EXPIRE_SECONDS': 36000,
-    'SCOPES': {'read': 'Read scope', 'write': 'Write scope'}
-}
 
 LOGIN_REDIRECT_URL = '/'  # Redirect to home after login
 LOGOUT_REDIRECT_URL = '/'  # Optional: redirect to home after logout

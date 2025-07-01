@@ -76,56 +76,59 @@ export default function HomeScreen() {
     );
   }
 
+  // Header and business profiles for FlatList
+  const ListHeader = () => (
+    <>
+      {currentUser && (
+        <View style={styles.currentUserBox}>
+          <Text style={styles.currentUserText}>Logged in as: <Text style={{ fontWeight: 'bold', color: '#007bff' }}>{currentUser.username}</Text></Text>
+        </View>
+      )}
+      <Text style={styles.header}>Welcome!</Text>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.buttonText}>Logout</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={() => navigation.navigate('ServiceRequest')}
+      >
+        <Text style={styles.buttonText}>Create Service Request</Text>
+      </TouchableOpacity>
+
+      <Text style={styles.sectionHeader}>Business Profiles</Text>
+      {businessProfiles.length === 0 && <Text style={styles.emptyText}>No business profiles found.</Text>}
+      {businessProfiles.map((biz) => (
+        <View key={biz.id} style={styles.card}>
+          <Text style={styles.cardTitle}>{biz.business_name}</Text>
+          <Text style={styles.cardSubtitle}>By: {biz.user} ({biz.email})</Text>
+          <Text style={styles.cardDetail}>Industry: {Array.isArray(biz.industry) ? biz.industry.join(', ') : biz.industry}</Text>
+          <Text style={styles.cardDetail}>Services: {Array.isArray(biz.services) ? biz.services.join(', ') : biz.services}</Text>
+        </View>
+      ))}
+      <Text style={styles.sectionHeader}>Service Requests</Text>
+    </>
+  );
+
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Current user display */}
-        {currentUser && (
-          <View style={styles.currentUserBox}>
-            <Text style={styles.currentUserText}>Logged in as: <Text style={{ fontWeight: 'bold', color: '#007bff' }}>{currentUser.username}</Text></Text>
+      <FlatList
+        contentContainerStyle={styles.container}
+        data={serviceRequests}
+        keyExtractor={(item) => item.id.toString()}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={<Text style={styles.emptyText}>No service requests found.</Text>}
+        renderItem={({ item }) => (
+          <View style={styles.serviceCard}>
+            <Text style={styles.serviceTitle}>{item.title}</Text>
+            <Text style={styles.serviceDesc}>{item.description}</Text>
+            <Text style={styles.serviceMeta}>Location: {item.location}</Text>
+            <Text style={styles.serviceMeta}>Posted by: <Text style={{ fontWeight: 'bold' }}>{item.user}</Text></Text>
+            <TouchableOpacity onPress={() => handleLetsChat(item.id, item.title)} style={styles.letsChatButton}>
+              <Text style={styles.buttonText}>Let's Chat</Text>
+            </TouchableOpacity>
           </View>
         )}
-        <Text style={styles.header}>Welcome!</Text>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.buttonText}>Logout</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => navigation.navigate('ServiceRequest')}
-        >
-          <Text style={styles.buttonText}>Create Service Request</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.sectionHeader}>Business Profiles</Text>
-        {businessProfiles.length === 0 && <Text style={styles.emptyText}>No business profiles found.</Text>}
-        {businessProfiles.map((biz) => (
-          <View key={biz.id} style={styles.card}>
-            <Text style={styles.cardTitle}>{biz.business_name}</Text>
-            <Text style={styles.cardSubtitle}>By: {biz.user} ({biz.email})</Text>
-            <Text style={styles.cardDetail}>Industry: {Array.isArray(biz.industry) ? biz.industry.join(', ') : biz.industry}</Text>
-            <Text style={styles.cardDetail}>Services: {Array.isArray(biz.services) ? biz.services.join(', ') : biz.services}</Text>
-          </View>
-        ))}
-
-        <Text style={styles.sectionHeader}>Service Requests</Text>
-        {serviceRequests.length === 0 && <Text style={styles.emptyText}>No service requests found.</Text>}
-        <FlatList
-          data={serviceRequests}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => (
-            <View style={styles.serviceCard}>
-              <Text style={styles.serviceTitle}>{item.title}</Text>
-              <Text style={styles.serviceDesc}>{item.description}</Text>
-              <Text style={styles.serviceMeta}>Location: {item.location}</Text>
-              <Text style={styles.serviceMeta}>Posted by: <Text style={{ fontWeight: 'bold' }}>{item.user}</Text></Text>
-              {/* Only show Let's Chat if not the creator */}
-              <TouchableOpacity onPress={() => handleLetsChat(item.id, item.title)} style={styles.letsChatButton}>
-                <Text style={styles.buttonText}>Let's Chat</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        />
-      </ScrollView>
+      />
       <TouchableOpacity style={styles.inboxButton} onPress={() => navigation.navigate('Inbox')}>
         <Text style={{ color: '#fff', fontWeight: 'bold' }}>Inbox</Text>
       </TouchableOpacity>
