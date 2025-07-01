@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.authtoken.models import Token
-from .models import INDUSTRY_CHOICES, SERVICES_CHOICES, ServiceRequest, ServiceRequestImage, BusinessProfile, UserProfile
+from .models import INDUSTRY_CHOICES, SERVICES_CHOICES, ServiceRequest, ServiceRequestImage, BusinessProfile, UserProfile, ChatRoom, Message
 from .email_utils import send_verification_email
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -187,3 +187,91 @@ class ServiceRequestListView(APIView):
         queryset = ServiceRequest.objects.all().order_by('-created_at')
         serializer = ServiceRequestListSerializer(queryset, many=True)
         return Response(serializer.data)
+
+class ChatRoomListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        rooms = ChatRoom.objects.filter(participants=request.user).select_related('service_request').prefetch_related('participants', 'messages')
+        data = []
+        
+        for room in rooms:
+            # Get the other participant (not the current user)
+            other_participant = next(
+                (user for user in room.participants.all() if user != request.user),
+                None
+            )
+            
+            # Get the latest message if any
+            latest_message = room.messages.order_by('-timestamp').first()
+            
+            room_data = {
+                'id': room.id,
+                'service_request': {
+                    'id': room.service_request.id,
+                    'title': room.service_request.title,
+                },
+                'other_participant': {
+                    'username': other_participant.username if other_participant else None,
+                },
+                'latest_message': {
+                    'content': latest_message.content if latest_message else None,
+                    'timestamp': latest_message.timestamp if latest_message else None,
+                    'sender': latest_message.sender.username if latest_message else None,
+                } if latest_message else None,
+                'created_at': room.created_at,
+            }
+            data.append(room_data)
+            
+        # Sort by latest message timestamp or room creation date
+        data.sort(key=lambda x: (
+            x['latest_message']['timestamp'] if x['latest_message'] else x['created_at']
+        ), reverse=True)
+        
+        return Response(data)
+
+class MessageListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, room_id):
+        try:
+            room = ChatRoom.objects.get(id=room_id)
+            if request.user not in room.participants.all():
+                return Response({'error': 'Not allowed'}, status=403)
+            messages = room.messages.order_by('timestamp')
+            data = [
+                {
+                    'id': msg.id,
+                    'sender': msg.sender.username,
+                    'content': msg.content,
+                    'timestamp': msg.timestamp,
+                }
+                for msg in messages
+            ]
+            return Response(data)
+        except ChatRoom.DoesNotExist:
+            return Response({'error': 'Room not found'}, status=404)
+
+class CreateChatRoomView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        service_request_id = request.data.get('service_request_id')
+        try:
+            sr = ServiceRequest.objects.get(id=service_request_id)
+            # Only allow poster and business user
+            if sr.user == request.user:
+                other_user = request.data.get('other_user')
+                if not other_user:
+                    return Response({'error': 'Other user required'}, status=400)
+                other = User.objects.get(username=other_user)
+            else:
+                other = sr.user
+            # Check if room exists
+            room, created = ChatRoom.objects.get_or_create(service_request=sr)
+            room.participants.add(request.user, other)
+            return Response({'room_id': room.id})
+        except ServiceRequest.DoesNotExist:
+            return Response({'error': 'Service request not found'}, status=404)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)

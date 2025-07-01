@@ -68,3 +68,23 @@ class ServiceRequestImage(models.Model):
 
     def __str__(self):
         return f"Image for {self.service_request.title}"
+
+class ChatRoom(models.Model):
+    participants = models.ManyToManyField(User, related_name='chat_rooms')
+    service_request = models.ForeignKey(ServiceRequest, on_delete=models.CASCADE, related_name='chat_rooms')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"ChatRoom for {self.service_request.title} ({', '.join([u.username for u in self.participants.all()])})"
+
+    class Meta:
+        unique_together = ('service_request',)
+
+class Message(models.Model):
+    room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Message from {self.sender.username} at {self.timestamp}"

@@ -53,6 +53,7 @@ INSTALLED_APPS = [
 
     'client',  # <-- Add this line
 
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -85,6 +86,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'server.wsgi.application'
+ASGI_APPLICATION = 'backend.routings.application'
 
 
 # Database
@@ -193,4 +195,10 @@ ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
 
 ACCOUNT_LOGIN_METHODS = {'username', 'email'}
 ACCOUNT_EMAIL_VERIFICATION = 'none'  # Set to 'mandatory' for production
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
 

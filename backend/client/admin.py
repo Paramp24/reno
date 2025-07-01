@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
-from .models import UserProfile, ServiceRequest, ServiceRequestImage, BusinessProfile
+from .models import UserProfile, ServiceRequest, ServiceRequestImage, BusinessProfile, ChatRoom, Message
 
 @admin.register(BusinessProfile)
 class BusinessProfileAdmin(admin.ModelAdmin):
@@ -50,6 +50,24 @@ class ServiceRequestAdmin(admin.ModelAdmin):
 @admin.register(ServiceRequestImage)
 class ServiceRequestImageAdmin(admin.ModelAdmin):
     list_display = ('service_request', 'image', 'uploaded_at')
+
+@admin.register(ChatRoom)
+class ChatRoomAdmin(admin.ModelAdmin):
+    list_display = ('id', 'service_request', 'created_at', 'participants_list')
+    search_fields = ('service_request__title',)
+    filter_horizontal = ('participants',)
+
+    def participants_list(self, obj):
+        return ", ".join([u.username for u in obj.participants.all()])
+    participants_list.short_description = 'Participants'
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ('id', 'room', 'sender', 'timestamp', 'short_content')
+    search_fields = ('room__service_request__title', 'sender__username', 'content')
+    def short_content(self, obj):
+        return obj.content[:50] + ('...' if len(obj.content) > 50 else '')
+    short_content.short_description = 'Content'
 
 # Inline for User admin
 class UserProfileInline(admin.StackedInline):
