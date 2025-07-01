@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Text, View, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
+import { AuthContext } from '../App';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CustomButton = ({ title, onPress, style }) => (
@@ -12,6 +13,7 @@ const CustomButton = ({ title, onPress, style }) => (
 
 export default function LoginScreen() {
   const navigation = useNavigation();
+  const { signIn } = useContext(AuthContext);
   const [hello, setHello] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,15 +25,15 @@ export default function LoginScreen() {
         password,
       });
       if (res.status === 200 && res.data && res.data.key) {
-        await AsyncStorage.setItem('authToken', res.data.key);
         setHello('');
-        navigation.replace('Home');
+        await signIn(res.data.key);
       } else if (res.data && res.data.error === 'User not verified') {
         setHello('Please verify your email before logging in.');
       } else {
         setHello('Login failed');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setHello('Login failed');
     }
   };
@@ -67,3 +69,4 @@ const styles = StyleSheet.create({
   button: { backgroundColor: '#007bff', padding: 10, borderRadius: 5, margin: 5, width: 250, alignItems: 'center' },
   buttonText: { color: '#fff', fontWeight: 'bold' }
 });
+

@@ -1,27 +1,55 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { format } from 'date-fns';
 
 export default function ChatScreen({ route, navigation }) {
-  const { roomId, roomTitle } = route.params;
+  // Add default values and validation for route params
+  const params = route?.params || {};
+  const roomId = params.roomId;
+  const roomTitle = params.roomTitle || 'Chat';
+  
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const ws = useRef(null);
   const [username, setUsername] = useState('');
 
+  // Check if we have the required parameters, if not redirect to Home
   useEffect(() => {
+    if (!roomId) {
+      Alert.alert(
+        "Missing Information",
+        "Chat room information is missing. Returning to home screen.",
+        [{ text: "OK", onPress: () => navigation.replace('Home') }]
+      );
+    }
+  }, [roomId, navigation]);
+
+  // Only proceed with API calls if we have a roomId
+  useEffect(() => {
+    if (!roomId) return;
+    
     const fetchUser = async () => {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
-        // Optionally fetch user info if needed
+        try {
+          const res = await axios.get('http://127.0.0.1:8000/api/hello/', {
+            headers: { Authorization: `Token ${token}` }
+          });
+          setUsername(res.data.username);
+          
+        } catch (error) {
+          console.error('Error fetching user:', error);
+        }
       }
     };
     fetchUser();
-  }, []);
+  }, [roomId]);
 
   useEffect(() => {
+    if (!roomId) return;
+    
     const fetchMessages = async () => {
       try {
         const token = await AsyncStorage.getItem('authToken');
@@ -38,6 +66,8 @@ export default function ChatScreen({ route, navigation }) {
   }, [roomId]);
 
   useEffect(() => {
+    if (!roomId) return;
+    
     const connectWebSocket = async () => {
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
@@ -97,7 +127,18 @@ export default function ChatScreen({ route, navigation }) {
   };
 
   const renderMessage = ({ item }) => {
-    const isOwnMessage = item.sender.username === username;
+    // Normalize usernames for comparison (trim and convert to lowercase)
+    const normalizedSender = item.sender.username.trim().toLowerCase();
+    const normalizedUsername = username.trim().toLowerCase();
+    console.log('Normalized sender:', normalizedSender, 'Normalized username:', normalizedUsername);
+    const isOwnMessage = normalizedSender === normalizedUsername;
+    
+    console.log('Message from:', item.sender.username, 
+      'Current user:', username, 
+      'Normalized sender:', normalizedSender,
+      'Normalized username:', normalizedUsername,
+      'Is own:', isOwnMessage);
+    
     return (
       <View style={[
         styles.messageRow,
@@ -107,8 +148,14 @@ export default function ChatScreen({ route, navigation }) {
           styles.messageContent,
           isOwnMessage ? styles.ownMessageContent : null
         ]}>
-          <Text style={styles.messageText}>{item.content}</Text>
-          <Text style={styles.timestamp}>{formatMessageTime(item.timestamp)}</Text>
+          <Text style={[
+            styles.messageText,
+            isOwnMessage ? styles.ownMessageText : null
+          ]}>{item.content}</Text>
+          <Text style={[
+            styles.timestamp,
+            isOwnMessage ? styles.ownTimestamp : null
+          ]}>{formatMessageTime(item.timestamp)}</Text>
         </View>
       </View>
     );
@@ -121,33 +168,56 @@ export default function ChatScreen({ route, navigation }) {
           <Text style={styles.backButton}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{roomTitle}</Text>
-      </View>
-
-      <FlatList
-        data={messages}
-        keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-        renderItem={renderMessage}
-        style={styles.messages}
-        inverted={false}
-        contentContainerStyle={styles.messagesList}
-      />
-
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Type a message..."
-          multiline
-        />
+        {/* Add a home button */}
         <TouchableOpacity 
-          style={styles.sendButton} 
-          onPress={sendMessage}
-          disabled={!input.trim()}
+          style={styles.homeButton} 
+          onPress={() => navigation.navigate('Home')}
         >
-          <Text style={styles.sendButtonText}>Send</Text>
+          <Text style={styles.homeButtonText}>🏠</Text>
         </TouchableOpacity>
       </View>
+
+      {!roomId ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Unable to load chat. Room information is missing.
+          </Text>
+          <TouchableOpacity 
+            style={styles.errorButton}
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.errorButtonText}>Go Home</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <FlatList
+            data={messages}
+            keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
+            renderItem={renderMessage}
+            style={styles.messages}
+            inverted={false}
+            contentContainerStyle={styles.messagesList}
+          />
+
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              value={input}
+              onChangeText={setInput}
+              placeholder="Type a message..."
+              multiline
+            />
+            <TouchableOpacity 
+              style={styles.sendButton} 
+              onPress={sendMessage}
+              disabled={!input.trim()}
+            >
+              <Text style={styles.sendButtonText}>Send</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -192,10 +262,16 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
   },
+  ownMessageText: {
+    color: '#fff',
+  },
   timestamp: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+  },
+  ownTimestamp: {
+    color: '#e0e0e0',
   },
   inputRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
   input: { flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 5, padding: 8, marginRight: 5 },
@@ -211,5 +287,34 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     paddingVertical: 15,
+  },
+  // Add new styles
+  homeButton: {
+    marginLeft: 'auto',
+    padding: 5,
+  },
+  homeButtonText: {
+    fontSize: 20,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  errorButton: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 5,
+  },
+  errorButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });

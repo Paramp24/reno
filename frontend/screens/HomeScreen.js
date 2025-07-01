@@ -1,19 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { AuthContext } from '../App';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const { signOut } = useContext(AuthContext);
   const [businessProfiles, setBusinessProfiles] = useState([]);
   const [serviceRequests, setServiceRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
 
+  // Modify the handleLogout function
   const handleLogout = async () => {
-    await AsyncStorage.removeItem('authToken');
-    navigation.replace('Login');
+    await signOut();
   };
 
   useEffect(() => {
@@ -152,4 +154,4 @@ const styles = StyleSheet.create({
   currentUserBox: { backgroundColor: '#e9f5ff', borderRadius: 8, padding: 10, marginBottom: 10, alignSelf: 'stretch', alignItems: 'center' },
   currentUserText: { color: '#007bff', fontSize: 15 },
 });
-
+ 

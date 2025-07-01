@@ -225,6 +225,14 @@ export default function ServiceRequestScreen({ navigation }) {
       <TouchableOpacity style={styles.button} onPress={handleSubmit}>
         <Text style={styles.buttonText}>Submit Request</Text>
       </TouchableOpacity>
+      
+      {/* Go Home button */}
+      <TouchableOpacity 
+        style={[styles.button, styles.homeButton]} 
+        onPress={() => navigation.navigate('Home')}
+      >
+        <Text style={styles.buttonText}>Go Home</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -295,6 +303,11 @@ const styles = StyleSheet.create({
   imageButtonText: {
     color: '#333',
     fontWeight: 'bold',
+  },
+  homeButton: { 
+    backgroundColor: '#28a745', 
+    marginTop: 10, 
+    marginBottom: 20 
   },
 });
 
