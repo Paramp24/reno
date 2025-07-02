@@ -44,6 +44,9 @@ export default function RegisterScreen() {
   const [servicesChoices, setServicesChoices] = useState([]);
   const [industrySearch, setIndustrySearch] = useState('');
   const [servicesSearch, setServicesSearch] = useState('');
+  const [showBusinessPrompt, setShowBusinessPrompt] = useState(false);
+  const [googleNewUser, setGoogleNewUser] = useState(false);
+  const [googleToken, setGoogleToken] = useState('');
 
   // Google Auth
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
@@ -59,7 +62,6 @@ export default function RegisterScreen() {
 
   const handleGoogleSignIn = async (idToken) => {
     try {
-      // Send token and business info to backend
       const res = await axios.post('http://127.0.0.1:8000/api/google-login/', {
         token: idToken,
         is_business_owner: isBusinessOwner,
@@ -71,7 +73,14 @@ export default function RegisterScreen() {
         await AsyncStorage.setItem('authToken', res.data.key);
         setHello('');
         authContext.signIn(res.data.key);
-        navigation.replace('Home');
+        // If backend says this is a new user, prompt for business info
+        if (res.data.new_user) {
+          setGoogleNewUser(true);
+          setShowBusinessPrompt(true);
+          setGoogleToken(idToken);
+        } else {
+          navigation.replace('Home');
+        }
       } else {
         Alert.alert('Google Sign-In failed', 'Unable to authenticate with Google.');
       }
@@ -79,8 +88,6 @@ export default function RegisterScreen() {
       Alert.alert('Google Sign-In error', err.message || 'An error occurred during Google sign-in.');
     }
   };
-
-  // Existing code continues...
 
   useEffect(() => {
     const fetchChoices = async () => {
@@ -138,10 +145,15 @@ export default function RegisterScreen() {
       setStep(2);
       setHello('Check your email for the verification code.');
     } catch (err) {
-      // Debug log to see backend error
-      if (err.response) {
-        console.log('Register error:', err.response.data);
-        setHello('Registration failed: ' + JSON.stringify(err.response.data));
+      // Improved error handling for duplicate username/email
+      if (err.response && err.response.data) {
+        if (err.response.data.username) {
+          setHello('Username already exists. Please choose another.');
+        } else if (err.response.data.email) {
+          setHello('Email already exists. Please use another.');
+        } else {
+          setHello('Registration failed: ' + JSON.stringify(err.response.data));
+        }
       } else {
         setHello('Registration failed');
       }
@@ -157,12 +169,39 @@ export default function RegisterScreen() {
       if (res.status === 200 && res.data && res.data.key) {
         await AsyncStorage.setItem('authToken', res.data.key);
         setHello('');
-        navigation.replace('Home');
+        if (isBusinessOwner) {
+          setShowBusinessPrompt(true);
+        } else {
+          navigation.replace('Home');
+        }
       } else {
         setHello('Verification failed');
       }
     } catch (err) {
       setHello('Verification failed');
+    }
+  };
+
+  const handleBusinessInfoSubmit = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      const res = await axios.post('http://127.0.0.1:8000/api/update-business-info/', {
+        is_business_owner: isBusinessOwner,
+        business_name: businessName,
+        industry: industry,
+        services: services,
+      }, {
+        headers: { Authorization: `Token ${token}` }
+      });
+      if (res.status === 200) {
+        setShowBusinessPrompt(false);
+        setGoogleNewUser(false);
+        navigation.replace('Home');
+      } else {
+        Alert.alert('Update failed', 'Unable to update business information.');
+      }
+    } catch (err) {
+      Alert.alert('Update error', err.message || 'An error occurred while updating business info.');
     }
   };
 
@@ -173,6 +212,100 @@ export default function RegisterScreen() {
   const removeService = (choice) => {
     setServices((prev) => prev.filter((item) => item !== choice));
   };
+
+  if (showBusinessPrompt || googleNewUser) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.header}>Business Information</Text>
+        <View style={styles.switchRow}>
+          <Text>Are you a business owner?</Text>
+          <Switch
+            value={isBusinessOwner}
+            onValueChange={setIsBusinessOwner}
+          />
+        </View>
+        {isBusinessOwner && (
+          <>
+            <TextInput
+              style={styles.input}
+              placeholder="Business Name"
+              value={businessName}
+              onChangeText={setBusinessName}
+            />
+            <Text style={{ marginTop: 10, fontWeight: 'bold' }}>Industry</Text>
+            <View style={styles.selectedChipsRow}>
+              {industry.map((choice) => (
+                <View key={choice} style={styles.chip}>
+                  <Text style={styles.chipText}>{choice}</Text>
+                  <TouchableOpacity onPress={() => removeIndustry(choice)}>
+                    <Text style={styles.chipRemove}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Search Industry"
+              value={industrySearch}
+              onChangeText={setIndustrySearch}
+            />
+            {industrySearch.trim().length > 0 && (
+              <View style={styles.choicesRow}>
+                {(industryChoices.length ? industryChoices : [])
+                  .filter(choice =>
+                    choice.toLowerCase().includes(industrySearch.toLowerCase()) &&
+                    !industry.includes(choice)
+                  )
+                  .map((choice) => (
+                    <CustomButton
+                      key={choice}
+                      title={choice}
+                      onPress={() => toggleIndustry(choice)}
+                      selected={false}
+                    />
+                  ))}
+              </View>
+            )}
+            <Text style={{ marginTop: 10, fontWeight: 'bold' }}>Services</Text>
+            <View style={styles.selectedChipsRow}>
+              {services.map((choice) => (
+                <View key={choice} style={styles.chip}>
+                  <Text style={styles.chipText}>{choice}</Text>
+                  <TouchableOpacity onPress={() => removeService(choice)}>
+                    <Text style={styles.chipRemove}>×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Search Services"
+              value={servicesSearch}
+              onChangeText={setServicesSearch}
+            />
+            {servicesSearch.trim().length > 0 && (
+              <View style={styles.choicesRow}>
+                {(servicesChoices.length ? servicesChoices : [])
+                  .filter(choice =>
+                    choice.toLowerCase().includes(servicesSearch.toLowerCase()) &&
+                    !services.includes(choice)
+                  )
+                  .map((choice) => (
+                    <CustomButton
+                      key={choice}
+                      title={choice}
+                      onPress={() => toggleService(choice)}
+                      selected={false}
+                    />
+                  ))}
+              </View>
+            )}
+          </>
+        )}
+        <CustomButton title="Submit" onPress={handleBusinessInfoSubmit} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -223,7 +356,6 @@ export default function RegisterScreen() {
                 onChangeText={setBusinessName}
               />
               <Text style={{ marginTop: 10, fontWeight: 'bold' }}>Industry</Text>
-              {/* Selected industries as chips */}
               <View style={styles.selectedChipsRow}>
                 {industry.map((choice) => (
                   <View key={choice} style={styles.chip}>
@@ -240,7 +372,6 @@ export default function RegisterScreen() {
                 value={industrySearch}
                 onChangeText={setIndustrySearch}
               />
-              {/* Only show options if search is not empty */}
               {industrySearch.trim().length > 0 && (
                 <View style={styles.choicesRow}>
                   {(industryChoices.length ? industryChoices : [])
@@ -259,7 +390,6 @@ export default function RegisterScreen() {
                 </View>
               )}
               <Text style={{ marginTop: 10, fontWeight: 'bold' }}>Services</Text>
-              {/* Selected services as chips */}
               <View style={styles.selectedChipsRow}>
                 {services.map((choice) => (
                   <View key={choice} style={styles.chip}>
@@ -276,7 +406,6 @@ export default function RegisterScreen() {
                 value={servicesSearch}
                 onChangeText={setServicesSearch}
               />
-              {/* Only show options if search is not empty */}
               {servicesSearch.trim().length > 0 && (
                 <View style={styles.choicesRow}>
                   {(servicesChoices.length ? servicesChoices : [])
@@ -297,7 +426,6 @@ export default function RegisterScreen() {
             </>
           )}
           <CustomButton title="Sign Up" onPress={handleRegister} />
-          {/* Google Sign-In Button */}
           <CustomButton
             title="Sign in with Google"
             onPress={() => {

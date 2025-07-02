@@ -4,7 +4,7 @@ from .views import (
     HelloView, ChoicesView, ServiceRequestView, 
     BusinessProfileListView, ServiceRequestListView,
     ChatRoomView, ChatMessageView, CreateChatRoomView,
-    GoogleLoginView
+    GoogleLoginView, UpdateBusinessInfoView
 )
 
 urlpatterns = [
@@ -13,6 +13,7 @@ urlpatterns = [
     path('verify/', VerifyCodeView.as_view()),
     path('login/', CustomLoginView.as_view()),
     path('google-login/', GoogleLoginView.as_view()),
+    path('update-business-info/', UpdateBusinessInfoView.as_view()),
     path('api/choices/', ChoicesView.as_view(), name='choices'),
     path('choices/', ChoicesView.as_view(), name='choices'),
     path('service-request/', ServiceRequestView.as_view(), name='service-request'),

@@ -13,6 +13,33 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
 
+# New API to update business owner info
+class UpdateBusinessInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        profile = user.userprofile
+        data = request.data
+
+        is_business_owner = data.get('is_business_owner', False)
+        business_name = data.get('business_name', '')
+        industry = data.get('industry', [])
+        services = data.get('services', [])
+
+        profile.is_business_owner = is_business_owner in [True, 'true', 'True', 1, '1']
+        if profile.is_business_owner:
+            profile.business_name = business_name
+            profile.industry = industry
+            profile.services = services
+        else:
+            profile.business_name = ''
+            profile.industry = []
+            profile.services = []
+        profile.save()
+
+        return Response({'detail': 'Business info updated'}, status=status.HTTP_200_OK)
+
 # Additional imports for Google token verification
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -283,19 +310,29 @@ class GoogleLoginView(APIView):
 
             # ID token is valid. Get the user's Google Account info
             email = idinfo.get('email')
-            username = idinfo.get('name') or email.split('@')[0]
+            base_username = idinfo.get('name') or email.split('@')[0]
 
             if not email:
                 return Response({'error': 'Email not available in token'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Check if user exists
+            # Check if user exists by email
             from django.contrib.auth.models import User
-            user, created = User.objects.get_or_create(email=email, defaults={'username': username})
+            user = User.objects.filter(email=email).first()
+            created = False
+            if not user:
+                # Ensure username is unique
+                username = base_username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+                user = User.objects.create(username=username, email=email)
+                user.set_unusable_password()
+                user.save()
+                created = True
 
             if created:
                 # New user, create profile
-                user.set_unusable_password()
-                user.save()
                 profile = user.userprofile
                 profile.is_verified = True
                 profile.is_business_owner = is_business_owner in [True, 'true', 'True', 1, '1']
@@ -316,7 +353,7 @@ class GoogleLoginView(APIView):
 
             # Generate or get token
             token_obj, _ = Token.objects.get_or_create(user=user)
-            return Response({'key': token_obj.key}, status=status.HTTP_200_OK)
+            return Response({'key': token_obj.key, 'new_user': created}, status=status.HTTP_200_OK)
 
         except ValueError:
             # Invalid token
