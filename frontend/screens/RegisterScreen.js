@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Text, View, TextInput, StyleSheet, TouchableOpacity, Switch, ScrollView } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { Text, View, TextInput, StyleSheet, TouchableOpacity, Switch, ScrollView, Alert } from 'react-native';
 import axios from 'axios';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Import for Google Auth
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
+
+// Import AuthContext
+import { AuthContext } from '../App';
 
 const CustomButton = ({ title, onPress, style, selected }) => (
   <TouchableOpacity
@@ -17,8 +24,11 @@ const CustomButton = ({ title, onPress, style, selected }) => (
   </TouchableOpacity>
 );
 
+WebBrowser.maybeCompleteAuthSession();
+
 export default function RegisterScreen() {
   const navigation = useNavigation();
+  const authContext = useContext(AuthContext);
   const [hello, setHello] = useState('');
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
@@ -34,6 +44,43 @@ export default function RegisterScreen() {
   const [servicesChoices, setServicesChoices] = useState([]);
   const [industrySearch, setIndustrySearch] = useState('');
   const [servicesSearch, setServicesSearch] = useState('');
+
+  // Google Auth
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
+    clientId: '642552962636-urfk7q3i38dls008ljs65h59veotncjc.apps.googleusercontent.com',
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      handleGoogleSignIn(id_token);
+    }
+  }, [response]);
+
+  const handleGoogleSignIn = async (idToken) => {
+    try {
+      // Send token and business info to backend
+      const res = await axios.post('http://127.0.0.1:8000/api/google-login/', {
+        token: idToken,
+        is_business_owner: isBusinessOwner,
+        business_name: isBusinessOwner ? businessName : '',
+        industry: isBusinessOwner ? industry : [],
+        services: isBusinessOwner ? services : [],
+      });
+      if (res.status === 200 && res.data.key) {
+        await AsyncStorage.setItem('authToken', res.data.key);
+        setHello('');
+        authContext.signIn(res.data.key);
+        navigation.replace('Home');
+      } else {
+        Alert.alert('Google Sign-In failed', 'Unable to authenticate with Google.');
+      }
+    } catch (err) {
+      Alert.alert('Google Sign-In error', err.message || 'An error occurred during Google sign-in.');
+    }
+  };
+
+  // Existing code continues...
 
   useEffect(() => {
     const fetchChoices = async () => {
@@ -250,6 +297,14 @@ export default function RegisterScreen() {
             </>
           )}
           <CustomButton title="Sign Up" onPress={handleRegister} />
+          {/* Google Sign-In Button */}
+          <CustomButton
+            title="Sign in with Google"
+            onPress={() => {
+              promptAsync();
+            }}
+            style={{ backgroundColor: '#db4437', marginTop: 10 }}
+          />
         </ScrollView>
       ) : (
         <>

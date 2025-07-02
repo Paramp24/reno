@@ -13,6 +13,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
 
+# Additional imports for Google token verification
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
 def generate_code(length=8):
     return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
@@ -259,6 +263,64 @@ class ChatMessageView(APIView):
         messages = Message.objects.filter(room=room).order_by('-timestamp')
         serializer = ChatMessageSerializer(messages, many=True)
         return Response(serializer.data)
+
+class GoogleLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token')
+        is_business_owner = request.data.get('is_business_owner', False)
+        business_name = request.data.get('business_name', '')
+        industry = request.data.get('industry', [])
+        services = request.data.get('services', [])
+
+        if not token:
+            return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Verify the token with Google
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request())
+
+            # ID token is valid. Get the user's Google Account info
+            email = idinfo.get('email')
+            username = idinfo.get('name') or email.split('@')[0]
+
+            if not email:
+                return Response({'error': 'Email not available in token'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # Check if user exists
+            from django.contrib.auth.models import User
+            user, created = User.objects.get_or_create(email=email, defaults={'username': username})
+
+            if created:
+                # New user, create profile
+                user.set_unusable_password()
+                user.save()
+                profile = user.userprofile
+                profile.is_verified = True
+                profile.is_business_owner = is_business_owner in [True, 'true', 'True', 1, '1']
+                if profile.is_business_owner:
+                    profile.business_name = business_name
+                    profile.industry = industry
+                    profile.services = services
+                profile.save()
+            else:
+                # Existing user, update business info if provided
+                profile = user.userprofile
+                if is_business_owner in [True, 'true', 'True', 1, '1']:
+                    profile.is_business_owner = True
+                    profile.business_name = business_name
+                    profile.industry = industry
+                    profile.services = services
+                    profile.save()
+
+            # Generate or get token
+            token_obj, _ = Token.objects.get_or_create(user=user)
+            return Response({'key': token_obj.key}, status=status.HTTP_200_OK)
+
+        except ValueError:
+            # Invalid token
+            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
