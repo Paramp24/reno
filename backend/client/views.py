@@ -302,35 +302,41 @@ class GoogleLoginView(APIView):
         try:
             idinfo = id_token.verify_oauth2_token(token, google_requests.Request())
             email = idinfo.get('email')
-            base_username = idinfo.get('name') or email.split('@')[0]
-
+            
             if not email:
                 return Response({'error': 'Email not available in token'}, status=status.HTTP_400_BAD_REQUEST)
 
-            user, created = User.objects.get_or_create(
-                email=email,
-                defaults={'username': base_username}
-            )
+            # Check if user with this email already exists
+            try:
+                user = User.objects.get(email=email)
+                created = False
+            except User.DoesNotExist:
+                # User does not exist, create a new one
+                base_username = idinfo.get('name', '').replace(' ', '') or email.split('@')[0]
+                username = base_username
+                # Ensure username is unique
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}_{generate_code(4)}"
 
-            if created:
-                # Ensure username is unique if the default one was taken
-                if User.objects.filter(username=base_username).count() > 1:
-                    username = f"{base_username}{user.id}"
-                    user.username = username
-                
+                user = User.objects.create_user(
+                    username=username,
+                    email=email
+                )
                 user.set_unusable_password()
-                user.save()
                 
                 # Create a basic profile, verification is implicitly true with Google
                 profile = user.userprofile
                 profile.is_verified = True
                 profile.save()
+                created = True
 
             token_obj, _ = Token.objects.get_or_create(user=user)
             return Response({'key': token_obj.key, 'new_user': created}, status=status.HTTP_200_OK)
 
         except ValueError:
             return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
