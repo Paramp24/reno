@@ -10,6 +10,7 @@ import HomeScreen from './screens/HomeScreen';
 import ServiceRequestScreen from './screens/ServiceRequestScreen';
 import ChatScreen from './screens/ChatScreen';
 import Inbox from './screens/Inbox';
+import BusinessProfileScreen from './screens/BusinessProfileScreen';
 
 // Create the AuthContext to be used across the app
 export const AuthContext = createContext();
@@ -23,6 +24,7 @@ export default function App() {
   const navigationRef = useRef(null);
   const [initialRoute, setInitialRoute] = useState('Home');
   const [routeReady, setRouteReady] = useState(false);
+  const [postAuthAction, setPostAuthAction] = useState(null);
   
   useEffect(() => {
     // Check authentication once at startup
@@ -48,6 +50,13 @@ export default function App() {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (isAuthenticated && postAuthAction && navigationRef.current) {
+      navigationRef.current.navigate(postAuthAction.screen, postAuthAction.params);
+      setPostAuthAction(null); // Reset after navigation
+    }
+  }, [isAuthenticated, postAuthAction]);
+
   // Save the current screen when navigation changes
   const handleStateChange = async (state) => {
     if (state && state.routes.length > 0) {
@@ -64,10 +73,13 @@ export default function App() {
 
   // Create the auth context value
   const authContextValue = {
-    signIn: async (token) => {
+    signIn: async (token, action = null) => {
       try {
         await AsyncStorage.setItem('authToken', token);
         setUserToken(token);
+        if (action) {
+          setPostAuthAction(action);
+        }
         setIsAuthenticated(true);
       } catch (error) {
         console.error('Error signing in:', error);
@@ -110,6 +122,7 @@ export default function App() {
             // Authenticated stack
             <>
               <Stack.Screen name="Home" component={HomeScreen} />
+              <Stack.Screen name="BusinessProfile" component={BusinessProfileScreen} />
               <Stack.Screen name="ServiceRequest" component={ServiceRequestScreen} />
               <Stack.Screen name="Chat" component={ChatScreen} />
               <Stack.Screen name="Inbox" component={Inbox} />

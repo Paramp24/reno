@@ -56,7 +56,7 @@ export default function LoginScreen() {
         onChangeText={setPassword}
       />
       <CustomButton title="Sign In" onPress={handleLogin} />
-      <CustomButton title="Go to Register" onPress={() => navigation.replace('Register')} style={{ backgroundColor: '#6c757d' }} />
+      <CustomButton title="Go to Register" onPress={() => navigation.navigate('Register')} style={{ backgroundColor: '#6c757d' }} />
       <Text style={{ marginTop: 20 }}>{hello}</Text>
     </View>
   );

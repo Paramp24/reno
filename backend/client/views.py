@@ -296,67 +296,40 @@ class GoogleLoginView(APIView):
 
     def post(self, request):
         token = request.data.get('token')
-        is_business_owner = request.data.get('is_business_owner', False)
-        business_name = request.data.get('business_name', '')
-        industry = request.data.get('industry', [])
-        services = request.data.get('services', [])
-
         if not token:
             return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            # Verify the token with Google
             idinfo = id_token.verify_oauth2_token(token, google_requests.Request())
-
-            # ID token is valid. Get the user's Google Account info
             email = idinfo.get('email')
             base_username = idinfo.get('name') or email.split('@')[0]
 
             if not email:
                 return Response({'error': 'Email not available in token'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # Check if user exists by email
-            from django.contrib.auth.models import User
-            user = User.objects.filter(email=email).first()
-            created = False
-            if not user:
-                # Ensure username is unique
-                username = base_username
-                counter = 1
-                while User.objects.filter(username=username).exists():
-                    username = f"{base_username}{counter}"
-                    counter += 1
-                user = User.objects.create(username=username, email=email)
-                user.set_unusable_password()
-                user.save()
-                created = True
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={'username': base_username}
+            )
 
             if created:
-                # New user, create profile
+                # Ensure username is unique if the default one was taken
+                if User.objects.filter(username=base_username).count() > 1:
+                    username = f"{base_username}{user.id}"
+                    user.username = username
+                
+                user.set_unusable_password()
+                user.save()
+                
+                # Create a basic profile, verification is implicitly true with Google
                 profile = user.userprofile
                 profile.is_verified = True
-                profile.is_business_owner = is_business_owner in [True, 'true', 'True', 1, '1']
-                if profile.is_business_owner:
-                    profile.business_name = business_name
-                    profile.industry = industry
-                    profile.services = services
                 profile.save()
-            else:
-                # Existing user, update business info if provided
-                profile = user.userprofile
-                if is_business_owner in [True, 'true', 'True', 1, '1']:
-                    profile.is_business_owner = True
-                    profile.business_name = business_name
-                    profile.industry = industry
-                    profile.services = services
-                    profile.save()
 
-            # Generate or get token
             token_obj, _ = Token.objects.get_or_create(user=user)
             return Response({'key': token_obj.key, 'new_user': created}, status=status.HTTP_200_OK)
 
         except ValueError:
-            # Invalid token
             return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
 
 

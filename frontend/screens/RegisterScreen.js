@@ -64,22 +64,14 @@ export default function RegisterScreen() {
     try {
       const res = await axios.post('http://127.0.0.1:8000/api/google-login/', {
         token: idToken,
-        is_business_owner: isBusinessOwner,
-        business_name: isBusinessOwner ? businessName : '',
-        industry: isBusinessOwner ? industry : [],
-        services: isBusinessOwner ? services : [],
       });
-      if (res.status === 200 && res.data.key) {
-        await AsyncStorage.setItem('authToken', res.data.key);
-        setHello('');
-        authContext.signIn(res.data.key);
-        // If backend says this is a new user, prompt for business info
+      console.log(res.data);
+      
+      if ((res.status === 200 || res.status === 201) && res.data.key) {
         if (res.data.new_user) {
-          setGoogleNewUser(true);
-          setShowBusinessPrompt(true);
-          setGoogleToken(idToken);
+          authContext.signIn(res.data.key, { screen: 'BusinessProfile' });
         } else {
-          navigation.replace('Home');
+          authContext.signIn(res.data.key, { screen: 'Home' });
         }
       } else {
         Alert.alert('Google Sign-In failed', 'Unable to authenticate with Google.');
@@ -170,9 +162,9 @@ export default function RegisterScreen() {
         await AsyncStorage.setItem('authToken', res.data.key);
         setHello('');
         if (isBusinessOwner) {
-          setShowBusinessPrompt(true);
+          authContext.signIn(res.data.key, { screen: 'BusinessProfile' });
         } else {
-          navigation.replace('Home');
+          authContext.signIn(res.data.key, { screen: 'Home' });
         }
       } else {
         setHello('Verification failed');

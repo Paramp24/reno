@@ -50,7 +50,7 @@ export default function ChatScreen({ route, navigation }) {
       Alert.alert(
         "Missing Information",
         "Chat room information is missing. Returning to home screen.",
-        [{ text: "OK", onPress: () => navigation.replace('Home') }]
+        [{ text: "OK", onPress: () => navigation.navigate('Home') }]
       );
     }
   }, [roomId, navigation, loadingParams]);

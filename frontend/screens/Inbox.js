@@ -19,7 +19,7 @@ export default function Inbox({ navigation }) {
         try {
             const token = await AsyncStorage.getItem('authToken');
             if (!token) {
-                navigation.replace('Login');
+                navigation.navigate('Login');
                 return;
             }
 
