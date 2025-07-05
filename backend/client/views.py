@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import serializers
+from django.db.models import Q
 
 # New API to update business owner info
 class UpdateBusinessInfoView(APIView):
@@ -107,12 +108,18 @@ class CustomLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        username = request.data.get('username')
+        login_identifier = request.data.get('username')
         password = request.data.get('password')
+        
+        if not login_identifier or not password:
+            return Response({'error': 'Username/email and password are required.'}, status=400)
+
         try:
-            user = User.objects.get(username=username)
+            user = User.objects.get(Q(username=login_identifier) | Q(email=login_identifier))
+            
             if not user.userprofile.is_verified:
                 return Response({'error': 'User not verified'}, status=403)
+            
             if user.check_password(password):
                 token, _ = Token.objects.get_or_create(user=user)
                 return Response({'key': token.key}, status=200)
@@ -120,6 +127,8 @@ class CustomLoginView(APIView):
                 return Response({'error': 'Invalid credentials'}, status=400)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
+        except User.MultipleObjectsReturned:
+            return Response({'error': 'Multiple users found with this email. Please use username to login.'}, status=400)
 
 
 class HelloView(APIView):
